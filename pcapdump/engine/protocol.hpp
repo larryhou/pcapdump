@@ -5,8 +5,8 @@
 //  Created by LARRYHOU on 2021/8/12.
 //
 
-#ifndef protocol_hpp
-#define protocol_hpp
+#ifndef pcapdump_protocol_hpp
+#define pcapdump_protocol_hpp
 
 #include <cstdint>
 #include <pcap.h>
@@ -107,4 +107,4 @@ struct UDP: public Transport {
 
 
 
-#endif /* protocol_hpp */
+#endif /* pcapdump_protocol_hpp */

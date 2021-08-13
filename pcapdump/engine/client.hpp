@@ -1,12 +1,12 @@
 //
-//  core.hpp
+//  client.hpp
 //  pcapdump
 //
 //  Created by LARRYHOU on 2021/8/13.
 //
 
-#ifndef core_hpp
-#define core_hpp
+#ifndef pcapdump_client_hpp
+#define pcapdump_client_hpp
 
 #include "protocol.hpp"
 #include <map>
@@ -36,10 +36,11 @@ public:
     
 public:
     Client(PacketObserver observer): observer(observer) {}
+    ~Client() { stop(); }
     bool start(const char* device, const char* filter);
     void stop();
 };
 
 }
 
-#endif /* core_hpp */
+#endif /* pcapdump_client_hpp */
