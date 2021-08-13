@@ -136,7 +136,7 @@ bool Client::start(const char *device, const char *filter)
         return false;
     }
     
-    handle = pcap_open_live(device, BUFSIZ, 1, 1000, errbuf);
+    handle = pcap_open_live(device, 2048, 1, 1000, errbuf);
     if (handle == NULL)
     {
         fprintf(stderr, "could not open device[%s]: %s", device, errbuf);
