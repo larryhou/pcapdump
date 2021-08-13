@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		6B01AFDA26C4F6D000B90694 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6B01AFD926C4F6D000B90694 /* main.cpp */; };
 		6B01AFE326C4F6E000B90694 /* libpcap.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B01AFE226C4F6E000B90694 /* libpcap.tbd */; };
-		6B01AFE726C512FB00B90694 /* protocol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6B01AFE526C512FB00B90694 /* protocol.cpp */; };
+		6B01AFED26C61E1500B90694 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6B01AFEB26C61E1500B90694 /* core.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -28,8 +28,9 @@
 		6B01AFD626C4F6D000B90694 /* pcapdump */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pcapdump; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B01AFD926C4F6D000B90694 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		6B01AFE226C4F6E000B90694 /* libpcap.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libpcap.tbd; path = usr/lib/libpcap.tbd; sourceTree = SDKROOT; };
-		6B01AFE526C512FB00B90694 /* protocol.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = protocol.cpp; sourceTree = "<group>"; };
 		6B01AFE626C512FB00B90694 /* protocol.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = protocol.hpp; sourceTree = "<group>"; };
+		6B01AFEB26C61E1500B90694 /* core.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = core.cpp; sourceTree = "<group>"; };
+		6B01AFEC26C61E1500B90694 /* core.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = core.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,8 +65,9 @@
 		6B01AFD826C4F6D000B90694 /* pcapdump */ = {
 			isa = PBXGroup;
 			children = (
-				6B01AFE526C512FB00B90694 /* protocol.cpp */,
 				6B01AFE626C512FB00B90694 /* protocol.hpp */,
+				6B01AFEB26C61E1500B90694 /* core.cpp */,
+				6B01AFEC26C61E1500B90694 /* core.hpp */,
 				6B01AFD926C4F6D000B90694 /* main.cpp */,
 			);
 			path = pcapdump;
@@ -135,8 +137,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6B01AFED26C61E1500B90694 /* core.cpp in Sources */,
 				6B01AFDA26C4F6D000B90694 /* main.cpp in Sources */,
-				6B01AFE726C512FB00B90694 /* protocol.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -258,7 +260,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEPLOYMENT_LOCATION = YES;
 				DEVELOPMENT_TEAM = PRLP6W5S32;
+				DSTROOT = /;
 				ENABLE_HARDENED_RUNTIME = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -268,7 +272,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEPLOYMENT_LOCATION = YES;
 				DEVELOPMENT_TEAM = PRLP6W5S32;
+				DSTROOT = /;
 				ENABLE_HARDENED_RUNTIME = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
