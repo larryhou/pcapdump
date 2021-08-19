@@ -85,7 +85,7 @@ struct TCP: public Transport {
     uint data_offset:4;
     bool fin:1;
     bool syn:1;
-    bool pst:1;
+    bool rst:1;
     bool psh:1;
     bool ack:1;
     bool urg:1;

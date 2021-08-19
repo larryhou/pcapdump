@@ -56,10 +56,10 @@ std::string human(uint64_t v)
     return s;
 }
 
-int tcpflow(Arguments &args)
+int tcpsum(Arguments &args)
 {
     auto filename = args.options['o'];
-    if (filename.empty()) { filename = "tcpflow.csv"; }
+    if (filename.empty()) { filename = "tcpsum.csv"; }
     std::fstream fs;
     fs.open(filename, std::ios::out | std::ios::binary);
     
@@ -73,14 +73,17 @@ int tcpflow(Arguments &args)
             auto &ts = packet->header->ts;
             auto tcp = packet->tcp;
             auto &payload = packet->payload.at(tcp);
-            if (payload.size > 0)
-            {
-                auto elapse = (ts.tv_sec - base.tv_sec) * 1000000 + (ts.tv_usec - base.tv_usec);
-                fs << std::to_string(elapse) << ',';
-                fs << std::to_string(tcp->src_port) << ',';
-                fs << std::to_string(tcp->dst_port) << ',';
-                fs << std::to_string(payload.size) << '\n';
-            }
+            auto elapse = (ts.tv_sec - base.tv_sec) * 1000000 + (ts.tv_usec - base.tv_usec);
+            fs << std::to_string(elapse) << ',';
+            fs << std::to_string(tcp->src_port) << ',';
+            fs << std::to_string(tcp->dst_port) << ',';
+            fs << std::to_string(payload.size) << ',';
+            if (tcp->syn) { fs << 'S'; }
+            if (tcp->fin) { fs << 'F'; }
+            if (tcp->rst) { fs << 'R'; }
+            if (tcp->psh) { fs << 'P'; }
+            if (tcp->ack) { fs << 'A'; }
+            fs << std::endl;
             
             stats[tcp->src_port] += payload.size;
             if (tick.tv_sec == 0) { tick = ts; } else {
@@ -106,6 +109,6 @@ int main(int argc, const char * argv[])
 {
     auto command = argv[1];
     auto args = parse_arguments(argc-2, argv+2);
-    if (!strcmp(command, "tcpflow")) { return tcpflow(args); }
+    if (!strcmp(command, "sum")) { return tcpsum(args); }
     return 110;
 }
