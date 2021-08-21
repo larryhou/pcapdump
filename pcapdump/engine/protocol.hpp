@@ -91,7 +91,7 @@ struct TCP: public Transport {
     bool urg:1;
     bool ece:1;
     bool cwr:1;
-    uint16_t window_size;
+    uint16_t window;
     uint16_t checksum;
     uint16_t urgent_pointer;
 };

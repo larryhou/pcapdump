@@ -97,7 +97,7 @@ void process(u_char *args, const struct pcap_pkthdr *header, const u_char *packe
             tcp->dst_port = ntohs(tcp->dst_port);
             tcp->sequence = ntohl(tcp->sequence);
             tcp->acknowlegement = ntohl(tcp->acknowlegement);
-            tcp->window_size = ntohs(tcp->window_size);
+            tcp->window = ntohs(tcp->window);
             tcp->checksum = ntohs(tcp->checksum);
             tcp->urgent_pointer = ntohs(tcp->urgent_pointer);
             auto hdrlen = tcp->data_offset << 2;

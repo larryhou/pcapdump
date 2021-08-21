@@ -12,7 +12,7 @@
 #include <string>
 
 struct Arguments {
-    std::map<char,std::string> options;
+    std::map<std::string,std::string> options;
     std::vector<std::string> others;
 };
 
@@ -24,8 +24,9 @@ Arguments parse_arguments(int argc, const char **argv)
         auto v = argv[i];
         if (*v == '-')
         {
-            assert(strlen(v) == 2);
-            args.options[v[1]] = argv[++i];
+            while(*v == '-') {v++;}
+            assert(argv[i+1][0] != '-');
+            args.options[v] = argv[++i];
         }
         else
         {
@@ -58,7 +59,7 @@ std::string human(uint64_t v)
 
 int tcpsum(Arguments &args)
 {
-    auto filename = args.options['o'];
+    auto filename = args.options["o"];
     if (filename.empty()) { filename = "tcpsum.csv"; }
     std::fstream fs;
     fs.open(filename, std::ios::out | std::ios::binary);
@@ -67,7 +68,9 @@ int tcpsum(Arguments &args)
     struct timeval base;
     gettimeofday(&base, NULL);
     struct timeval tick;
-    pcapdump::Client client([&](std::shared_ptr<const pcapdump::Packet> packet){
+    using addr_t = std::pair<uint32_t, uint16_t>;
+    std::map<std::pair<uint32_t, uint16_t>, uint32_t> offsets;
+    pcapdump::Client client([&](std::shared_ptr<const pcapdump::Packet> packet) {
         if (packet->tcp)
         {
             auto &ts = packet->header->ts;
@@ -78,18 +81,52 @@ int tcpsum(Arguments &args)
             fs << std::to_string(tcp->src_port) << ',';
             fs << std::to_string(tcp->dst_port) << ',';
             fs << std::to_string(payload.size) << ',';
+            
+            std::pair<uint32_t, uint16_t> srcent;
+            std::pair<uint32_t, uint16_t> dstent;
+            if (packet->ethernet->ether_type == pcapdump::kInternetIPv6)
+            {
+                srcent.first = *(uint32_t *)(((pcapdump::IPv6 *)packet->internet)->src_addr+12);
+                dstent.first = *(uint32_t *)(((pcapdump::IPv6 *)packet->internet)->dst_addr+12);
+            }
+            else
+            {
+                srcent.first = *(uint32_t *)((pcapdump::IPv4 *)packet->internet)->src_addr;
+                dstent.first = *(uint32_t *)((pcapdump::IPv4 *)packet->internet)->dst_addr;
+            }
+            srcent.second = tcp->src_port;
+            dstent.second = tcp->dst_port;
+            
+            uint32_t srcoff = 0; {
+                auto iter = offsets.find(srcent);
+                if (iter == offsets.end()) { offsets[srcent] = srcoff = tcp->sequence; } else {
+                    if (iter->second > tcp->sequence) { iter->second = 0; } else { srcoff = iter->second; }
+                }
+            }
+            
+            uint32_t dstoff = 0; {
+                auto iter = offsets.find(dstent);
+                if (iter == offsets.end()) { if (tcp->acknowlegement) { offsets[dstent] = dstoff = tcp->acknowlegement;} } else {
+                    if (tcp->acknowlegement && tcp->acknowlegement < iter->second) { iter->second = 0; } else { dstoff = iter->second; }
+                }
+            }
+            
             if (tcp->syn) { fs << 'S'; }
             if (tcp->fin) { fs << 'F'; }
             if (tcp->rst) { fs << 'R'; }
             if (tcp->psh) { fs << 'P'; }
             if (tcp->ack) { fs << 'A'; }
+            fs << ',';
+            fs << std::to_string(tcp->sequence - srcoff) << ',';
+            fs << std::to_string(tcp->acknowlegement - dstoff) << ',';
+            fs << std::to_string(tcp->window) << ',';
             fs << std::endl;
             
             stats[tcp->src_port] += payload.size;
             if (tick.tv_sec == 0) { tick = ts; } else {
                 if (ts.tv_sec > tick.tv_sec)
                 {
-                    auto interval = (double)(ts.tv_sec - tick.tv_sec + (ts.tv_usec - tick.tv_usec) / 1E+6);
+                    auto interval = (double)(ts.tv_sec - tick.tv_sec + (ts.tv_usec - tick.tv_usec) * 1e-6);
                     std::cout << ' ' << '\r' << std::flush;
                     for (auto iter = stats.begin(); iter != stats.end(); iter++)
                     {
@@ -102,7 +139,7 @@ int tcpsum(Arguments &args)
         }
     });
     
-    return client.start(args.options['i'].c_str(), args.options['f'].c_str());
+    return client.start(args.options["i"].c_str(), args.options["f"].c_str());
 }
 
 int main(int argc, const char * argv[])
