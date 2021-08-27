@@ -160,8 +160,6 @@ bool Client::start(const char *filename)
         } break;
     }
     
-    sleep(1);
-    
     auto major = stream.read<uint16_t>();
     auto minor = stream.read<uint16_t>();
     

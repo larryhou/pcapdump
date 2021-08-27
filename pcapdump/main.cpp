@@ -147,7 +147,11 @@ int sum_live(Arguments &args)
 int sum_pcap(Arguments &args)
 {
     pcapdump::Client client([&](std::shared_ptr<const pcapdump::Packet> packet) {
-        
+        if (packet->tcp)
+        {
+            auto tcp = packet->tcp;
+            std::cout << tcp->src_port << " => " << tcp->dst_port << " seq:" << tcp->sequence << " ack:" << tcp->acknowlegement << std::endl;
+        }
     });
     
     return client.start(args.options["f"].c_str());
