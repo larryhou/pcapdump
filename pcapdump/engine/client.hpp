@@ -27,15 +27,7 @@ struct Packet {
 
 using PacketObserver = std::function<void(std::shared_ptr<const Packet>)>;
 
-struct PcapHdr {
-    enum { kMagicNano = 0xA1B23C4D, kMagicMicro = 0xA1B2C3D4 };
-    uint32_t magic;
-    uint16_t major_version;
-    uint16_t minor_version;
-    char reserved[8];
-    uint32_t snaplen;
-    uint32_t type;
-};
+enum PcapMagic { kPcapMagicNano = 0xA1B23C4D, kPcapMagicMicro = 0xA1B2C3D4 };
 
 class Client {
     char __errbuf[PCAP_ERRBUF_SIZE];

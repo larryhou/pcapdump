@@ -127,13 +127,13 @@ bool Client::start(const char *filename)
     auto magic = stream.read<uint32_t>();
     switch (magic)
     {
-        case PcapHdr::kMagicNano:
+        case kPcapMagicNano:
         {
             micro = false;
             stream.endian = kEndianLittle;
         } break;
             
-        case PcapHdr::kMagicMicro:
+        case kPcapMagicMicro:
         {
             micro = true;
             stream.endian = kEndianLittle;
@@ -144,13 +144,13 @@ bool Client::start(const char *filename)
             magic = magic >> 24 | magic << 24 | (magic >> 8 & 0x00FF00) | (magic << 8 & 0xFF0000);
             switch (magic)
             {
-                case PcapHdr::kMagicNano:
+                case kPcapMagicNano:
                 {
                     micro = false;
                     stream.endian = kEndianBig;
                 } break;
                     
-                case PcapHdr::kMagicMicro:
+                case kPcapMagicMicro:
                 {
                     micro = true;
                     stream.endian = kEndianBig;
