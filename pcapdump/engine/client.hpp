@@ -38,8 +38,8 @@ struct PcapHdr {
 };
 
 class Client {
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *handle;
+    char __errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *__handle;
     
 public:
     PacketObserver observer;
@@ -47,7 +47,7 @@ public:
     bpf_u_int32 mask;
     
 public:
-    Client(PacketObserver observer): observer(observer) {}
+    Client(PacketObserver observer): observer(observer), __handle(nullptr) {}
     ~Client() { stop(); }
     bool start(const char* device, const char* filter);
     bool start(const char* filename);

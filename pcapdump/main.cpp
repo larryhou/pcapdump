@@ -141,7 +141,7 @@ int sum_live(Arguments &args)
         }
     });
     
-    return client.start(args.options["i"].c_str(), args.options["f"].c_str());
+    return client.start(args.options["i"].c_str(), args.options["f"].c_str())? 0 : 1;
 }
 
 int sum_pcap(Arguments &args)
@@ -154,7 +154,7 @@ int sum_pcap(Arguments &args)
         }
     });
     
-    return client.start(args.options["f"].c_str());
+    return client.start(args.options["f"].c_str())? 0 : 1;
 }
 
 int main(int argc, const char * argv[])

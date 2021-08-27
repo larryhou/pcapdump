@@ -191,48 +191,47 @@ bool Client::start(const char *filename)
         stream.seek(offset + header.caplen, std::ios::beg);
         if (f) { for (auto i = 0; i < fcs; i++) { stream.read<char>(); } }
     }
-    
     return true;
 }
 
 bool Client::start(const char *device, const char *filter)
 {
-    if (pcap_lookupnet(device, &addr, &mask, errbuf) == -1)
+    if (pcap_lookupnet(device, &addr, &mask, __errbuf) == -1)
     {
-        fprintf(stderr, "could not find device[%s]: %s", device, errbuf);
+        fprintf(stderr, "could not find device[%s]: %s", device, __errbuf);
         return false;
     }
     
-    handle = pcap_open_live(device, 2048, 1, 1000, errbuf);
-    if (handle == NULL)
+    __handle = pcap_open_live(device, 2048, 1, 1000, __errbuf);
+    if (__handle == NULL)
     {
-        fprintf(stderr, "could not open device[%s]: %s", device, errbuf);
+        fprintf(stderr, "could not open device[%s]: %s", device, __errbuf);
         return false;
     }
     
     if (filter != NULL && strlen(filter))
     {
         struct bpf_program program;
-        if (pcap_compile(handle, &program, filter, 0, addr))
+        if (pcap_compile(__handle, &program, filter, 0, addr))
         {
-            fprintf(stderr, "could not parse filter[%s]: %s", filter, errbuf);
+            fprintf(stderr, "could not parse filter[%s]: %s", filter, __errbuf);
             return false;
         }
         
-        if (pcap_setfilter(handle, &program) == -1)
+        if (pcap_setfilter(__handle, &program) == -1)
         {
-            fprintf(stderr, "could not apply filter[%s]: %s", filter, errbuf);
+            fprintf(stderr, "could not apply filter[%s]: %s", filter, __errbuf);
             return false;
         }
     }
     
-    return pcap_loop(handle, -1, process, (u_char *)this) == 0;
+    return pcap_loop(__handle, -1, process, (u_char *)this) == 0;
 }
 
 void Client::stop()
 {
-    if (handle != NULL) {
-        pcap_breakloop(handle);
-        handle = NULL;
+    if (__handle != NULL) {
+        pcap_breakloop(__handle);
+        __handle = NULL;
     }
 }
