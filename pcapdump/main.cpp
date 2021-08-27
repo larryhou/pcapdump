@@ -57,7 +57,7 @@ std::string human(uint64_t v)
     return s;
 }
 
-int tcpsum(Arguments &args)
+int sum_live(Arguments &args)
 {
     auto filename = args.options["o"];
     if (filename.empty()) { filename = "tcpsum.csv"; }
@@ -75,7 +75,7 @@ int tcpsum(Arguments &args)
         {
             auto &ts = packet->header->ts;
             auto tcp = packet->tcp;
-            auto &payload = packet->payload.at(tcp);
+            auto &payload = packet->payload.at(tcp.get());
             auto elapse = (ts.tv_sec - base.tv_sec) * 1000000 + (ts.tv_usec - base.tv_usec);
             fs << std::to_string(elapse) << ',';
             fs << std::to_string(tcp->src_port) << ',';
@@ -84,15 +84,17 @@ int tcpsum(Arguments &args)
             
             std::pair<uint32_t, uint16_t> srcent;
             std::pair<uint32_t, uint16_t> dstent;
-            if (packet->ethernet->ether_type == pcapdump::kInternetIPv6)
+            if (packet->ethernet->type == pcapdump::kInternetIPv6)
             {
-                srcent.first = *(uint32_t *)(((pcapdump::IPv6 *)packet->internet)->src_addr+12);
-                dstent.first = *(uint32_t *)(((pcapdump::IPv6 *)packet->internet)->dst_addr+12);
+                auto ipv6 = (pcapdump::IPv6 *)packet->internet.get();
+                srcent.first = *(uint32_t *)(ipv6->src_addr+12);
+                dstent.first = *(uint32_t *)(ipv6->dst_addr+12);
             }
             else
             {
-                srcent.first = *(uint32_t *)((pcapdump::IPv4 *)packet->internet)->src_addr;
-                dstent.first = *(uint32_t *)((pcapdump::IPv4 *)packet->internet)->dst_addr;
+                auto ipv4 = (pcapdump::IPv4 *)packet->internet.get();
+                srcent.first = *(uint32_t *)ipv4->src_addr;
+                dstent.first = *(uint32_t *)ipv4->dst_addr;
             }
             srcent.second = tcp->src_port;
             dstent.second = tcp->dst_port;
@@ -142,10 +144,20 @@ int tcpsum(Arguments &args)
     return client.start(args.options["i"].c_str(), args.options["f"].c_str());
 }
 
+int sum_pcap(Arguments &args)
+{
+    pcapdump::Client client([&](std::shared_ptr<const pcapdump::Packet> packet) {
+        
+    });
+    
+    return client.start(args.options["f"].c_str());
+}
+
 int main(int argc, const char * argv[])
 {
     auto command = argv[1];
     auto args = parse_arguments(argc-2, argv+2);
-    if (!strcmp(command, "sum")) { return tcpsum(args); }
+    if (!strcmp(command, "sum")) { return sum_live(args); }
+    else if (!strcmp(command, "sumpcap")) { return sum_pcap(args); }
     return 110;
 }

@@ -12,51 +12,50 @@ using namespace pcapdump;
 namespace {
 void process(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
-    auto ptr = (const char*)packet;
+    MemoryStream stream((char *)packet, (size_t)header->len);
+    stream.endian = kEndianNetwork;
+    
     auto client = (Client *)args;
+    auto p = client->parse(header, stream);
+    if (p) { client->observer(p); }
+}
+
+}
+
+std::shared_ptr<Packet> Client::parse(const struct pcap_pkthdr *header, MemoryStream &stream)
+{
     auto p = std::make_shared<Packet>();
     p->header = header;
-    auto ethernet = (Ethernet *)ptr;
-    ethernet->ether_type = (InternetType)ntohs(static_cast<uint16_t>(ethernet->ether_type));
+    auto ethernet = std::make_shared<Ethernet>();
+    ethernet->decode(stream);
     p->ethernet = ethernet;
-    
-    ptr += sizeof(Ethernet);
-    p->payload[p->ethernet] = RawBytes{ptr, (int)(header->len-sizeof(Ethernet))};
+    p->payload[p->ethernet.get()] = stream.slice(header->len-sizeof(Ethernet));
     
     int transport = 0;
     ProtoType protocol;
-    switch (p->ethernet->ether_type) {
+    switch (p->ethernet->type) {
         case kInternetIPv4:
         {
-            auto ipv4 = (IPv4 *)ptr;
-            auto part = ipv4->flags;
-            ipv4->flags = ipv4->fragment_offset >> 10;
-            ipv4->fragment_offset = part << 8 | (ipv4->fragment_offset & 0x300) << 2 | (ipv4->fragment_offset & 0xFF);
-            ipv4->length = ntohs(ipv4->length);
-            ipv4->identifier = ntohs(ipv4->identifier);
-            ipv4->checksum = ntohs(ipv4->checksum);
+            auto offset = stream.tell();
+            auto ipv4 = std::make_shared<IPv4>();
+            ipv4->decode(stream);
             auto hdrlen = ipv4->ihl << 2;
-            if (hdrlen < 20) {return;}
+            if (hdrlen < 20) {return nullptr;}
             p->internet = ipv4;
-            ptr += hdrlen;
+            stream.seek(hdrlen - (stream.tell() - offset));
             transport = ipv4->length - hdrlen;
-            p->payload[ipv4] = RawBytes{ptr,transport};
+            p->payload[ipv4.get()] = stream.slice(transport);
             protocol = ipv4->protocol;
         } break;
         
         case kInternetIPv6:
         {
-            auto ipv6 = (IPv6 *)ptr;
-            auto part = ipv6->version;
-            ipv6->version = ipv6->traffic_class >> 4;
-            part = ipv6->traffic_class & 0xF;
-            ipv6->traffic_class = part << 4 | (ipv6->flow_label >> 8);
-            ipv6->flow_label = part << 8 | (ipv6->flow_label & 0xFF);
-            ipv6->payload_length = ntohs(ipv6->payload_length);
+            auto ipv6 = std::make_shared<IPv6>();
+            ipv6->decode(stream);
             protocol = ipv6->next_header;
-            ptr += sizeof(IPv6);
-            p->payload[ipv6] = RawBytes{ptr,ipv6->payload_length};
-            auto beg = ptr;
+            p->internet = ipv6;
+            p->payload[ipv6.get()] = stream.slice(ipv6->payload_length);
+            auto offset = stream.tell();
             while (true)
             {
                 switch (protocol) {
@@ -65,67 +64,137 @@ void process(u_char *args, const struct pcap_pkthdr *header, const u_char *packe
                     case kProtoDestination:
                     case kProtoAuthencation:
                     {
-                        protocol = *(ProtoType *)ptr++;
-                        ptr += *(unsigned char *)ptr+1;
+                        protocol = stream.read<ProtoType>();
+                        stream.seek(stream.read<char>()-1);
                     } break;
                     
                     case kProtoFragment:
                     {
-                        protocol = *(ProtoType *)ptr++;
-                        ptr += 7;
+                        protocol = stream.read<ProtoType>();
+                        stream.seek(7);
                     } break;
                         
-                    case kProtoSecurity: return;
-                    case kProtoMobility: return;
-                    case kProtoNoNext: return;
+                    case kProtoSecurity: return nullptr;
+                    case kProtoMobility: return nullptr;
+                    case kProtoNoNext: return nullptr;
                     
                     default:
-                        transport = ipv6->payload_length - static_cast<int>(ptr-beg);
+                        transport = ipv6->payload_length - (int)(stream.tell() - offset);
                         break;
                 }
             }
         } break;
-        default: return;
+        default: return nullptr;
     }
     
     switch (protocol)
     {
         case kProtoTCP:
         {
-            auto tcp = (TCP *)ptr;
-            tcp->src_port = ntohs(tcp->src_port);
-            tcp->dst_port = ntohs(tcp->dst_port);
-            tcp->sequence = ntohl(tcp->sequence);
-            tcp->acknowlegement = ntohl(tcp->acknowlegement);
-            tcp->window = ntohs(tcp->window);
-            tcp->checksum = ntohs(tcp->checksum);
-            tcp->urgent_pointer = ntohs(tcp->urgent_pointer);
+            auto offset = stream.tell();
+            auto tcp = std::make_shared<TCP>();
+            tcp->decode(stream);
             auto hdrlen = tcp->data_offset << 2;
-            ptr += hdrlen;
-            p->payload[tcp] = RawBytes{ptr, transport-hdrlen};
+            stream.seek(hdrlen - (stream.tell() - offset));
+            p->payload[tcp.get()] = stream.slice(transport-hdrlen);
             p->transport = tcp;
             p->tcp = tcp;
         } break;
-            
+        
         case kProtoUDP:
         {
-            auto udp = (UDP *)ptr;
-            udp->src_port = ntohs(udp->src_port);
-            udp->dst_port = ntohs(udp->dst_port);
-            udp->length = ntohs(udp->length);
-            udp->checksum = ntohs(udp->checksum);
-            ptr += sizeof(UDP);
-            p->payload[udp] = RawBytes{ptr, static_cast<int>(transport-sizeof(UDP))};
+            auto offset = stream.tell();
+            auto udp = std::make_shared<UDP>();
+            udp->decode(stream);
+            p->payload[udp.get()] = stream.slice(transport - (stream.tell() - offset));
             p->transport = udp;
             p->udp = udp;
         } break;
-            
-        default: return;
+        
+        default: return nullptr;
     }
     
-    client->observer(p);
+    return p;
 }
 
+bool Client::start(const char *filename)
+{
+    MmapFile mf;
+    if (!mf.open(filename)) {return false;}
+    MemoryStream stream(mf);
+    
+    auto micro = true;
+    auto magic = stream.read<uint32_t>();
+    switch (magic)
+    {
+        case PcapHdr::kMagicNano:
+        {
+            micro = false;
+            stream.endian = kEndianLittle;
+        } break;
+            
+        case PcapHdr::kMagicMicro:
+        {
+            micro = true;
+            stream.endian = kEndianLittle;
+        } break;
+            
+        default:
+        {
+            magic = magic >> 24 | magic << 24 | (magic >> 8 & 0x00FF00) | (magic << 8 & 0xFF0000);
+            switch (magic)
+            {
+                case PcapHdr::kMagicNano:
+                {
+                    micro = false;
+                    stream.endian = kEndianBig;
+                } break;
+                    
+                case PcapHdr::kMagicMicro:
+                {
+                    micro = true;
+                    stream.endian = kEndianBig;
+                } break;
+                default: return false;
+            }
+        } break;
+    }
+    
+    sleep(1);
+    
+    auto major = stream.read<uint16_t>();
+    auto minor = stream.read<uint16_t>();
+    
+    stream.read<uint32_t>(); // reserved
+    stream.read<uint32_t>(); // reserved
+    
+    auto snaplen = stream.read<uint32_t>();
+    
+    auto fcs = stream.read<int>(3);
+    auto f = stream.read<int>(1);
+    auto linktype = stream.read<uint32_t>(28);
+    
+    printf("# version=%d.%d snaplen=%d fcs=0x%x f=%d linktype=0x%7x\n", major, minor, snaplen, fcs, f, linktype);
+    
+    while (!stream.eof())
+    {
+        struct pcap_pkthdr header;
+        header.ts.tv_sec = stream.read<uint32_t>();
+        header.ts.tv_usec = stream.read<uint32_t>();
+        if (!micro) { header.ts.tv_usec /= 1000; }
+        header.caplen = stream.read<uint32_t>();
+        header.len = stream.read<uint32_t>();
+        auto offset = stream.tell();
+        auto endian = stream.endian;
+        stream.endian = kEndianNetwork;
+        auto packet = parse(&header, stream);
+        stream.endian = endian;
+        if (packet) { observer(packet); }
+        stream.seek(offset + header.caplen, std::ios::beg);
+        if (f) { for (auto i = 0; i < fcs; i++) { stream.read<char>(); } }
+    }
+    
+    return true;
 }
 
 bool Client::start(const char *device, const char *filter)
