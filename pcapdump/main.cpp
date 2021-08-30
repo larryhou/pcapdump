@@ -168,7 +168,9 @@ int sum_pcap(Arguments &args)
             std::cout << buf << ' ';
             std::cout << tcp->src_port << " => " << tcp->dst_port << " seq=" << tcp->sequence << " ack=" << tcp->acknowlegement << ' ';
             std::cout << "len=" << data.size << ' ';
-            std::cout << "win=" << tcp->window << '*' << (int)scales[tcp->src_port] << ' ';
+            std::cout << "win=" << tcp->window;
+            if (tcp->window) { std::cout << '*' << (int)scales[tcp->src_port]; }
+            std::cout << ' ';
             
             std::cout << '<';
             if (tcp->syn) { std::cout << "SYN|"; }
