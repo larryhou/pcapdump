@@ -10,6 +10,8 @@
 
 #include <cstdint>
 #include <pcap.h>
+#include <vector>
+#include <map>
 
 #include "stream.hpp"
 
@@ -79,6 +81,30 @@ struct IPv6: public Internet {
 using IPv6Ptr = std::shared_ptr<IPv6>;
 
 struct Transport {};
+struct TCPOption {
+    enum Type: uint8_t {
+        kTypeEOL = 0,
+        kTypeNOP = 1,
+        kTypeMSS = 2,
+        kTypeWindowScale = 3,
+        kTypeSACKPermitted = 4,
+        kTypeSACK = 5,
+        kTypeTimestamp = 8,
+    };
+    
+    Type type;
+    
+    static std::shared_ptr<TCPOption> decode(MemoryStream &stream);
+};
+
+struct TCPOptionEOL: public TCPOption {};
+struct TCPOptionNOP: public TCPOption {};
+struct TCPOptionMSS: public TCPOption { uint16_t mss; };
+struct TCPOptionWindowScale: public TCPOption { uint8_t scale; };
+struct TCPOptionSACKPermitted: public TCPOption {};
+struct TCPOptionSACK: public TCPOption { std::vector<std::pair<uint32_t, uint32_t>> sacks; };
+struct TCPOptionTimestamp: public TCPOption { uint32_t mine, echo; };
+
 struct TCP: public Transport {
     uint16_t src_port;
     uint16_t dst_port;
@@ -99,10 +125,10 @@ struct TCP: public Transport {
     uint16_t checksum;
     uint16_t urgent_pointer;
     
+    std::map<TCPOption::Type,std::shared_ptr<TCPOption>> options;
+    
     void decode(MemoryStream &stream);
 };
-
-using TCPPtr = std::shared_ptr<TCP>;
 
 struct UDP: public Transport {
     uint16_t src_port;
@@ -112,8 +138,6 @@ struct UDP: public Transport {
     
     void decode(MemoryStream &stream);
 };
-
-using UDPPtr = std::shared_ptr<UDP>;
 
 }
 

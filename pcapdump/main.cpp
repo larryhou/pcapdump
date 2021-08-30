@@ -146,11 +146,67 @@ int sum_live(Arguments &args)
 
 int sum_pcap(Arguments &args)
 {
+    char buf[32];
+    auto index = 0;
+    std::map<std::pair<uint16_t, uint32_t>, int> locator;
+    std::map<uint16_t, struct timeval> timestamps;
+    std::map<uint16_t, uint8_t> scales;
+    uint64_t basetime;
     pcapdump::Client client([&](std::shared_ptr<const pcapdump::Packet> packet) {
         if (packet->tcp)
         {
             auto tcp = packet->tcp;
-            std::cout << tcp->src_port << " => " << tcp->dst_port << " seq:" << tcp->sequence << " ack:" << tcp->acknowlegement << std::endl;
+            auto &pts = packet->header->ts;
+            auto &data = packet->payload.at(tcp.get());
+            auto winscale = tcp->options.find(pcapdump::TCPOption::kTypeWindowScale);
+            if (winscale != tcp->options.end()) {
+                scales[tcp->src_port] = ((pcapdump::TCPOptionWindowScale *)winscale->second.get())->scale;
+            }
+            if (!basetime) { basetime = pts.tv_sec; }
+            sprintf(buf, "%.6f", (pts.tv_sec - basetime) + pts.tv_usec * 1e-6);
+            std::cout << '#' << index << ' ';
+            std::cout << buf << ' ';
+            std::cout << tcp->src_port << " => " << tcp->dst_port << " seq=" << tcp->sequence << " ack=" << tcp->acknowlegement << ' ';
+            std::cout << "len=" << data.size << ' ';
+            std::cout << "win=" << tcp->window << '*' << (int)scales[tcp->src_port] << ' ';
+            
+            std::cout << '<';
+            if (tcp->syn) { std::cout << "SYN|"; }
+            if (tcp->fin) { std::cout << "FIN|"; }
+            if (tcp->rst) { std::cout << "RST|"; }
+            if (tcp->ack) { std::cout << "ACK|"; }
+            if (tcp->psh) { std::cout << "PSH|"; }
+            std::cout << '\b' << '>';
+            auto entity = std::make_pair(tcp->src_port, tcp->sequence + data.size);
+            locator[entity] = index;
+            auto match = locator.find(std::make_pair(tcp->dst_port, tcp->acknowlegement));
+            if (match != locator.end()) { std::cout << " :" << match->second; }
+            std::cout << ' ';
+            auto sack = tcp->options.find(pcapdump::TCPOption::kTypeSACK);
+            if (sack != tcp->options.end())
+            {
+                auto opt = (pcapdump::TCPOptionSACK *)sack->second.get();
+                std::cout << '<';
+                for (auto iter = opt->sacks.begin(); iter != opt->sacks.end(); iter++)
+                {
+                    std::cout << iter->first << ':' << iter->second << ',';
+                }
+                std::cout << '\b' << '>';
+                std::cout << ' ';
+            }
+            
+            auto time = timestamps.find(tcp->src_port);
+            if (time != timestamps.end())
+            {
+                auto elapse = (pts.tv_sec - time->second.tv_sec) * 1000000 + (pts.tv_usec - time->second.tv_usec);
+                std::cout << elapse;
+            } else {
+                std::cout << '-';
+            }
+            
+            std::cout << std::endl;
+            timestamps[tcp->src_port] = pts;
+            index++;
         }
     });
     
@@ -159,6 +215,8 @@ int sum_pcap(Arguments &args)
 
 int main(int argc, const char * argv[])
 {
+    /* sleep(1); */
+    
     auto command = argv[1];
     auto args = parse_arguments(argc-2, argv+2);
     if (!strcmp(command, "sum")) { return sum_live(args); }

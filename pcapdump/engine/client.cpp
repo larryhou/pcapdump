@@ -169,10 +169,10 @@ bool Client::start(const char *filename)
     auto snaplen = stream.read<uint32_t>();
     
     auto fcs = stream.read<int>(3);
-    auto f = stream.read<int>(1);
+    auto pad = stream.read<int>(1);
     auto linktype = stream.read<uint32_t>(28);
     
-    printf("# version=%d.%d snaplen=%d fcs=0x%x f=%d linktype=0x%7x\n", major, minor, snaplen, fcs, f, linktype);
+    printf("# version=%d.%d snaplen=%d fcs=0x%x pad=%d linktype=0x%7x\n", major, minor, snaplen, fcs, pad, linktype);
     
     while (!stream.eof())
     {
@@ -189,7 +189,7 @@ bool Client::start(const char *filename)
         stream.endian = endian;
         if (packet) { observer(packet); }
         stream.seek(offset + header.caplen, std::ios::beg);
-        if (f) { for (auto i = 0; i < fcs; i++) { stream.read<char>(); } }
+        if (pad) { for (auto i = 0; i < fcs; i++) { stream.read<char>(); } }
     }
     return true;
 }

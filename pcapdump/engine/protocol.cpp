@@ -44,8 +44,75 @@ void IPv6::decode(MemoryStream &stream)
     stream.read(dst_addr, sizeof(dst_addr));
 }
 
+std::shared_ptr<TCPOption> TCPOption::decode(MemoryStream &stream)
+{
+    std::shared_ptr<TCPOption> option;
+    auto type = stream.read<TCPOption::Type>();
+    switch (type)
+    {
+        case kTypeEOL:
+            option = std::make_shared<TCPOptionEOL>();
+            break;
+        case kTypeNOP:
+            option = std::make_shared<TCPOptionNOP>();
+            break;
+            
+        case kTypeMSS:
+        {
+            assert(stream.read<uint8_t>() == 4);
+            auto opt = std::make_shared<TCPOptionMSS>();
+            opt->mss = stream.read<uint16_t>();
+            option = opt;
+        } break;
+            
+        case kTypeWindowScale:
+        {
+            assert(stream.read<uint8_t>() == 3);
+            auto opt = std::make_shared<TCPOptionWindowScale>();
+            opt->scale = stream.read<uint8_t>();
+            option = opt;
+        } break;
+            
+        case kTypeSACKPermitted:
+        {
+            assert(stream.read<uint8_t>() == 2);
+            option = std::make_shared<TCPOptionSACKPermitted>();
+        } break;
+            
+        case kTypeSACK:
+        {
+            auto num = stream.read<uint8_t>();
+            auto opt = std::make_shared<TCPOptionSACK>();
+            for (auto i = 0; i < (num - 2)/8; i++)
+            {
+                opt->sacks.push_back(std::make_pair(stream.read<uint32_t>(), stream.read<uint32_t>()));
+            }
+            
+            option = opt;
+        } break;
+            
+        case kTypeTimestamp:
+        {
+            assert(stream.read<uint8_t>() == 10);
+            auto opt = std::make_shared<TCPOptionTimestamp>();
+            opt->mine = stream.read<uint32_t>();
+            opt->echo = stream.read<uint32_t>();
+            option = opt;
+        } break;
+            
+        default:
+            assert(false);
+            break;
+    }
+    
+    if (option) { option->type = type; }
+    
+    return option;
+}
+
 void TCP::decode(MemoryStream &stream)
 {
+    auto offset = stream.tell();
     src_port = stream.read<uint16_t>();
     dst_port = stream.read<uint16_t>();
     sequence = stream.read<uint32_t>();
@@ -64,6 +131,20 @@ void TCP::decode(MemoryStream &stream)
     window = stream.read<uint16_t>();
     checksum = stream.read<uint16_t>();
     urgent_pointer = stream.read<uint16_t>();
+    
+    options.clear();
+    auto hdrlen = data_offset << 2;
+    if (hdrlen > 20)
+    {
+        auto end = offset + hdrlen;
+        while (stream.tell() < end)
+        {
+            auto opt = TCPOption::decode(stream);
+            options[opt->type] = opt;
+            assert(stream.tell() <= end);
+            if (opt->type == TCPOption::kTypeEOL) {break;}
+        }
+    }
 }
 
 void UDP::decode(MemoryStream &stream)

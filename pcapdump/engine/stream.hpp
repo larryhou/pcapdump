@@ -100,7 +100,7 @@ T MemoryStream::read(int bits)
         __bitpos += n;
         if (__bitpos == 8)
         {
-            __bitpos = 0;
+            __bitpos=0;
             __cursor++;
         }
     }
